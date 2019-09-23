@@ -1,114 +1,115 @@
+@@ -0,0 +1,114 @@
 #!/bin/python3.6
-#Minyonug Na HW 2
+#Minyonug Na HW 1
 #
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from tqdm import trange
-LAMBDA = .001
-NUM_SAMP = 250
-BATCH_SIZE = 50
-NUM_BATCHES = 100
-LEARNING_RATE = 0.01
+
+NUM_FEATURES = 10
+NUM_SAMP = 50
+BATCH_SIZE = 40
+NUM_BATCHES = 300
+LEARNING_RATE = 0.1
 
 class Data(object):
-    def __init__(self, num_samp=NUM_SAMP):
+    def __init__(self, num_features=NUM_FEATURES, num_samp=NUM_SAMP):
+        """
+        """
         num_samp = NUM_SAMP
-        sigma = .1
+        sigma = 0.1
         np.random.seed(31415)
+
         #Initial distribution of data
-        self.index = np.arange(num_samp*2)
-
-        self.t = np.random.uniform(size=(num_samp))* 3.5 *np.pi 
-        self.x1 = np.float32((-2-(5.5+np.random.normal(0,sigma,num_samp))*self.t) * np.cos(self.t))
-        self.y1 = np.float32((-2-(5.5+np.random.normal(0,sigma,num_samp))*self.t) * np.sin(self.t))
-
-        self.x2 = np.float32((2+(5.5+np.random.normal(0,sigma,num_samp))*self.t) * np.cos(self.t) + 3)
-        self.y2 = np.float32((2+(5.5+np.random.normal(0,sigma,num_samp))*self.t) * np.sin(self.t) -3 ) 
-
-        self.setone = np.concatenate((self.x1,self.y1),axis=0)
-        self.settwo = np.concatenate((self.x2,self.y2),axis=0)
-
-        self.coord= np.transpose(np.vstack((self.setone,self.settwo)))
-        self.activation = np.concatenate((np.float32(np.zeros(num_samp)),np.float32(np.ones(num_samp))), axis=0)
-
+        self.index = np.arange(num_samp)
+        self.x = np.random.uniform(size=(num_samp))
+        self.y = np.sin(2*np.pi*self.x) + np.random.normal(0,sigma,num_samp)
+    
     def get_batch(self, batch_size=BATCH_SIZE):
-
+        """
+        Select random subset of examples for training batch
+        """
         choices = np.random.choice(self.index, size=batch_size)
-        return self.coord[choices,:], self.activation[choices]
+        return self.x[choices], self.y[choices].flatten()
 
-class MLP(tf.Module):
-    def __init__(self):
-        # Neural network
-        # Use activation function matmul in series
 
-        #Hidden Layer
-        
-        self.w1 = tf.Variable(tf.random.normal(shape=[2,50],mean=0,stddev=1),name='w1')
-        self.b1 = tf.Variable(tf.zeros(shape=[1, 50]),name='b1')
-        self.w2 = tf.Variable(tf.random.normal(shape=[50,25]),name='w2')
-        self.b2 = tf.Variable(tf.zeros(shape=[1, 25]),name='b2')
-        self.w3 = tf.Variable(tf.random.normal(shape=[25,1]),name='w3')
-        self.b3 = tf.Variable(tf.zeros(shape=[1, 1]),name='b3')
-    def __call__(self, points):
-        #Neural Network
-        layer1 = tf.matmul(points, self.w1) +self.b1
-        activ1 = tf.nn.relu(layer1)  
-        layer2 = tf.matmul(activ1, self.w2) + self.b2
-        activ2 = tf.nn.relu(layer2)
-        layer3 = tf.matmul(activ2,self.w3) + self.b3
-        #more layers to come
-        return tf.squeeze(layer3)
+class Model(tf.Module):
+    def __init__(self, num_features=NUM_FEATURES):
+        """
+        Setup Variables
+        w : Weight 
+        mu :
+        sig : 
+        b : Bias
+        """
+        self.w = tf.Variable(tf.random.normal(shape=[num_features+1, 1]),name='w')
+        self.mu = tf.Variable(tf.random.normal(shape=[num_features+1,1]),name='mu')
+        self.sig = tf.Variable(tf.random.normal(shape=[num_features+1,1]),name='sig')
+        self.b = tf.Variable(tf.zeros(shape=[1, 1]),name='b')
+
+    def __call__(self, x):
+        return tf.squeeze(tf.matmul(tf.transpose(self.w),tf.exp(-tf.pow(x-self.mu, 2)/tf.pow(self.sig,2))) + self.b)
 
 class Draw():
     def __init__(self):
-        fig, axarr = plt.subplots(nrows=1, ncols=1, figsize=[8,8])
+        sketch,plotter  = plt.subplots(nrows=1, ncols=2, figsize=[16,8])
 
-        #Display Boundary
-        xvalues = np.array([0, 1, 2, 3, 4])
-        yvalues = np.array([0, 1, 2, 3, 4])
-        xx, yy = np.meshgrid(xvalues, yvalues)
-        plt.plot(xx, yy, marker='.', color='k', linestyle='none')
+        x = np.linspace(0,1)
+        y = np.sin(2*np.pi*x)
+        plotter[0].plot(x,y,label='Sin wave')
+        plotter[0].scatter(data.x,data.y,label='Data')
+
+        plotter[0].set_title("Curve fitting example using SGD")  
+        plotter[1].set_title("Gaussians used to curve fit") 
+
+        plotter[0].set(xlabel='x', ylabel='y')
+        plotter[1].set(xlabel='x', ylabel='y') 
+
+        x = np.linspace(0,1)
+        y= tf.squeeze(tf.matmul(tf.transpose(model.w),tf.exp(-tf.pow(x-model.mu, 2)/tf.pow(model.sig,2))) + model.b)
+        plotter[0].plot(x,y, label='Prediction')
         
-        #Display example Data
-        plt.scatter(data.x1,data.y1,label='Data 1')
-        plt.scatter(data.x2,data.y2,label='Data 2')
+        """
+        Draw individual Gaussians that combine to the final prediction
+        """
+        for i in range(NUM_FEATURES + 1):
+            x = np.linspace(0,1)
+            y= tf.exp(-tf.pow(x-model.mu[i], 2)/tf.pow(model.sig[i],2))
+            plotter[1].plot(x,y,label = "Gaussian" + str(i)) 
+        
+        plotter[0].legend()
+        plotter[1].legend()
 
-        axarr.set_title('Binary Classification')
-        axarr.set(xlabel='x', ylabel='y')
-
-        plt.legend()
-    
         plt.show()
-
-def loss(mlp, x, y):
-  y_ = mlp(x)
-  return tf.nn.sigmoid_cross_entropy_with_logits(labels=activations, logits=y_) + (LAMBDA*tf.norm(mlp.w1)**2)
-
+    
 if __name__ == "__main__":
+    """
+    This part is nearly identical to the linear code; 
+    1. Get random batch from the graph
+    2. Find y_hat by modeling
+    3. Find loss from regression
+    4. Alter the variables by looking ta tthe gradient
+    """
     data = Data()
-    mlp=MLP()
-
+    model = Model()
     optimizer = tf.optimizers.SGD(learning_rate=LEARNING_RATE)
 
     bar = trange(NUM_BATCHES)
     for i in bar:
-        
         with tf.GradientTape() as tape:
-            coords, activations = data.get_batch()
-            loss = (mlp,coords,activations)
-            
-        grads = tape.gradient(loss, mlp.variables)
-        optimizer.apply_gradients(zip(grads, mlp.variables))
+            x, y = data.get_batch()
+            y_hat = model(x)
+            loss = tf.reduce_mean((y_hat - y) ** 2)
+
+        grads = tape.gradient(loss, model.variables)
+        optimizer.apply_gradients(zip(grads, model.variables))
+
+        bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
         bar.refresh()
-    
-    
-    """ coords_test,activation_test= data.get_batch()
-    y_hat = mlp(coords_test)
-    loss2= tf.sigmoid(y_hat) 
-    print(np.round(loss2)) """
 
     draw = Draw()
+
 
     
