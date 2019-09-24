@@ -20,7 +20,9 @@ from keras.optimizers import SGD
 #Hyperparams
 BATCH_SIZE =128
 NUM_CLASSES = 10
-EPOCHS = 2
+FILTER1 = 16 
+FILTER2 = 16
+EPOCHS = 12
 filenames = ['train-labels.idx1-ubyte','t10k-labels.idx1-ubyte','train-images.idx3-ubyte','t10k-images.idx3-ubyte']
 class Parse(object):
     def __init__(self) :
@@ -83,26 +85,35 @@ if __name__ == "__main__":
     y_test = keras.utils.to_categorical(y_test, NUM_CLASSES)
 
     model = Sequential()
-    model.add(Conv2D(32, kernel_size=(3, 3),
+    model.add(Conv2D(FILTER1, kernel_size=(3, 3),
                     activation='relu',
                     input_shape=input_shape,
                     data_format='channels_first',
                     kernel_regularizer=regularizers.l2(0.01)))
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
+    model.add(Conv2D(FILTER2, (3, 3), activation='relu'))
     model.add(Dropout(0.5))
     model.add(Flatten())
     model.add(Dense(NUM_CLASSES, activation='softmax'))
 
-    #Tried to fiddle with the optimizer here. Adadelta was taking way too long per epoch (80 seconds !)
+    numparams = 0
+    #number of parameters used
+    for a in model.get_weights(): 
+        print(np.asarray(a.shape))
+        numparams = numparams + np.prod(np.asarray(a.shape)) - NUM_CLASSES - FILTER1 - FILTER2
+    print("number of parameters : " ) 
+    print(numparams)
+    
+    #Tried to fiddle with the optimizer here. Adadelta was taking way too long per epoch.
     #This was initially very very innacurate but it seemed that lowering the learning rate ( initially 0.01) drastically improved the results.
-    #Takes around 30 second per epoch now.
-    sgd = SGD(lr=0.0005, decay=1e-6, momentum=0.99, nesterov=True)
+    #Also a little bit of research showed that there are optimal learning rates for different optimzers; Adadelta requires a larger Lr.
+    adam = keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
     model.compile(loss=keras.losses.categorical_crossentropy,
-              optimizer=sgd,
+              optimizer=adam,
               metrics=['accuracy'])
 
     #Trying on validation set
+    #custom training
     history = model.fit(x_train, y_train,
             batch_size=BATCH_SIZE,
             epochs=EPOCHS,
@@ -114,25 +125,12 @@ if __name__ == "__main__":
     print('Validation loss:', score[0])
     print('Validation accuracy:', score[1])
 
-    actualscore = model.evaluate(x_test, y_test, verbose=0)
+    actualscore = model.evaluate(x_test, y_test, verbose=1)
 
     print('Test loss:', actualscore[0])
     print('Test accuracy:', actualscore[1])
 
-    """ fig, axarr = plt.subplots(nrows=1, ncols=4, figsize=[8,4])
-    fig.tight_layout()
 
-    for i in range(4):
-        axarr[i].imshow(parse.train_img[i],cmap=cm.Greys)
-        axarr[i].set_title('Truth=%s' % str(parse.train_label[i]))
-
-    plt.figure()
-    plt.plot(history.history['accuracy'],'b-')
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show() """
 
     
 
