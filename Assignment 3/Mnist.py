@@ -79,12 +79,12 @@ if __name__ == "__main__":
 
     #This is me trying to attempt the inception layer. It did lower the number of parameters by a crapton, but
     #How do I get lower from here?
-    tower_1 = Dropout(0.8)(input_img)
-    tower_1 = Conv2D(FILTER1, (1,1), padding='same', activation='relu')(tower_1)
-    tower_1 = Conv2D(FILTER1, (3,3), padding='same', activation='relu')(tower_1)
+    tower_1 = Conv2D(FILTER1, (1,1), padding='same', activation='elu')(input_img)
+    tower_1 = Conv2D(FILTER1, (3,3), padding='same', activation='elu')(tower_1)
     
-    tower_3 = MaxPooling2D((4,4), strides=(1,1), padding='same')(input_img)
-    tower_3 = Conv2D(FILTER1, (1,1), padding='same', activation='relu')(tower_3)
+    tower_3 = Conv2D(FILTER1, (1,1), padding='same', activation='elu')(input_img)
+    tower_3 = Conv2D(FILTER1, (5,5), padding='same', activation='elu')(tower_3)
+    
     
     output = keras.layers.concatenate([tower_1,  tower_3], axis = 3)
     
@@ -107,6 +107,9 @@ if __name__ == "__main__":
     #SGD was initially very very innacurate but it seemed that lowering the learning rate ( initially 0.01) drastically improved the results.
     #Also a little bit of research showed that there are optimal learning rates for different optimzers; Adadelta requires a larger Lr.
     #Also upon further research I found that Adam is just generally better lol
+    #Early Stopping for the validation set
+
+    earlystop = keras.callbacks.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=0.005, patience=2, verbose=1, mode='auto', baseline=None, restore_best_weights=True)
 
     adam = keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
     model.compile(loss=keras.losses.categorical_crossentropy,
@@ -116,15 +119,13 @@ if __name__ == "__main__":
     #Trying on validation set
     #custom training
     history = model.fit(x_train, y_train,
+            callbacks=[earlystop],
             batch_size=BATCH_SIZE,
             epochs=EPOCHS,
             verbose=1,
             validation_data=(x_val, y_val))
 
     score = model.evaluate(x_val, y_val, verbose=0)
-
-    print('Validation loss:', score[0])
-    print('Validation accuracy:', score[1])
 
     actualscore = model.evaluate(x_test, y_test, verbose=1)
 

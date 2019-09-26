@@ -122,9 +122,6 @@ if __name__ == "__main__":
 
     score = model.evaluate(x_val, y_val, verbose=0)
 
-    print('Validation loss:', score[0])
-    print('Validation accuracy:', score[1])
-
     actualscore = model.evaluate(x_test, y_test, verbose=1)
 
     print('Test loss:', actualscore[0])
